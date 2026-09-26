@@ -9,8 +9,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Fidget">
 <link rel="manifest" href="manifest.webmanifest">
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
 <title>Six-Sided Fidget</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=DM+Sans:wght@400;600&display=swap">
@@ -84,6 +84,8 @@ h1 .ch.back{animation:drop-in .6s cubic-bezier(.3,1.6,.5,1) both;animation-delay
 .hud{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
 .count{font:700 22px var(--display);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--shell-lo);border:none;border-radius:10px;padding:8px 14px;box-shadow:inset 0 2px 6px rgba(0,0,0,.5);min-width:96px;text-align:right}
 .count small{display:block;font:500 10px var(--display);color:var(--muted);letter-spacing:.12em;text-transform:uppercase}
+#countBtn{cursor:pointer}
+.reset-row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
 .secrets{cursor:pointer;color:var(--sun);min-width:84px}
 .secrets.ping{animation:ping .6s}
 @keyframes ping{40%{transform:scale(1.15)}}
@@ -451,7 +453,7 @@ img{max-width:100%}
     </div>
     <div class="hud">
       <button class="inv" id="inv" hidden aria-label="Brass key"><svg viewBox="0 0 44 26"><circle cx="11" cy="13" r="8" fill="none" stroke="#e0b252" stroke-width="4"/><path d="M19 13H40M33 13v6M38 13v5" stroke="#e0b252" stroke-width="4" stroke-linecap="round"/></svg></button>
-      <div class="count" aria-live="polite"><small>Fidgets</small><span id="count">0</span></div>
+      <button class="count" id="countBtn" aria-expanded="false" aria-label="Fidget count, tap to reset"><small>Fidgets</small><span id="count" aria-live="polite">0</span></button>
       <button class="count secrets" id="secBtn" aria-expanded="false"><small>Secrets</small><span id="secN">0</span></button>
       <button class="mute" id="mute" aria-pressed="false">Sound on</button>
       <button class="mute" id="lockBtn">Child lock</button>
@@ -459,6 +461,15 @@ img{max-width:100%}
     </div>
   </header>
   <div class="log" id="log" hidden></div>
+  <div class="log" id="resetBox" hidden>
+    <h2>Reset</h2>
+    <div class="reset-row">
+      <button class="mute" id="resetCount">Reset fidgets to 0</button>
+      <button class="mute" id="resetAll">Start over completely</button>
+      <button class="gate-cancel" id="resetCancel">Cancel</button>
+    </div>
+    <p>Starting over also forgets every secret, place and key found.</p>
+  </div>
 
   <main id="rooms">
   <section class="room" id="room-cube">
@@ -814,7 +825,7 @@ img{max-width:100%}
   }
   function visit(id){ if(places.has(id)) return false; places.add(id); store.set('places', [...places]); renderLog(); return true; }
   renderLog();
-  secBtn.addEventListener('click', () => { log.hidden = !log.hidden; secBtn.setAttribute('aria-expanded', !log.hidden); });
+  secBtn.addEventListener('click', () => { const rb = $('resetBox'); if(rb){ rb.hidden = true; } log.hidden = !log.hidden; secBtn.setAttribute('aria-expanded', !log.hidden); });
   function discover(id, msg){
     if(msg) say(msg);
     if(found.has(id)) return;
@@ -834,6 +845,22 @@ img{max-width:100%}
     if(QUIPS[count]) say(QUIPS[count]);
     if(count === 1000) { discover('thousand', 'ONE THOUSAND FIDGETS.'); rain(); }
   }
+  const resetBox = $('resetBox'), countBtn = $('countBtn'), resetAll = $('resetAll');
+  let allArmed = 0;
+  const closeReset = () => { resetBox.hidden = true; countBtn.setAttribute('aria-expanded', 'false'); clearTimeout(allArmed); allArmed = 0; resetAll.textContent = 'Start over completely'; };
+  countBtn.addEventListener('click', () => {
+    if(document.body.classList.contains('locked')){ say('Grown-ups can reset this once it\'s unlocked.'); return; }
+    if(resetBox.hidden){ resetBox.hidden = false; log.hidden = true; countBtn.setAttribute('aria-expanded', 'true'); } else closeReset();
+  });
+  $('resetCancel').addEventListener('click', closeReset);
+  $('resetCount').addEventListener('click', () => {
+    count = 0; countEl.textContent = '0'; store.set('fidgets', 0); closeReset(); click(600, .08, .3, 'triangle'); say('Back to zero. Off you go!');
+  });
+  resetAll.addEventListener('click', () => {
+    if(!allArmed){ resetAll.textContent = 'Tap again to start over'; allArmed = setTimeout(() => { allArmed = 0; resetAll.textContent = 'Start over completely'; }, 3000); return; }
+    ['secrets', 'places', 'fidgets', 'key', 'cupboard', 'grown', 'room', 'cubeStars', 'moonOpen'].forEach(k => { try{ localStorage.removeItem(k); }catch(e){} });
+    location.reload();
+  });
 
   /* ---------- mini cube ---------- */
   const mini = $('mini'), miniBtn = $('miniBtn');
